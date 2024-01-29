@@ -89,13 +89,13 @@ class DataGenerator(DataLoadHandler):
         input_humidity = sensor_input['humidity']
         input_temp = sensor_input['temperature']
 
-        # gt_time = sensor_gt['time']
+        gt_time = sensor_gt['time']
         gt_humidity = sensor_gt['humidity']
         gt_temp = sensor_gt['temperature']
         
 
         
-        return (input_humidity, input_temp, gt_humidity, gt_temp)
+        return (input_humidity, input_temp, gt_humidity, gt_temp, gt_time)
 
     @tf.function(jit_compile=True)
     def preprocess(self, sample: dict) -> Union[tf.Tensor, tf.Tensor]:
@@ -108,9 +108,9 @@ class DataGenerator(DataLoadHandler):
             Returns:
                 (img, labels) (dict) : tf.Tensor
         """
-        input_humidity, input_temp, gt_humidity, gt_temp = self.prepare_data(sample)
+        input_humidity, input_temp, gt_humidity, gt_temp, gt_time = self.prepare_data(sample)
         
-        return (input_humidity, input_temp, gt_humidity, gt_temp)
+        return (input_humidity, input_temp, gt_humidity, gt_temp, gt_time)
     
     def get_trainData(self, train_data: tf.data.Dataset) -> tf.data.Dataset:
         """
