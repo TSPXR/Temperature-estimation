@@ -1,0 +1,124 @@
+{
+    "featuresDict": {
+        "features": {
+            "M1": {
+                "featuresDict": {
+                    "features": {
+                        "heat_index": {
+                            "pythonClassName": "tensorflow_datasets.core.features.tensor_feature.Tensor",
+                            "tensor": {
+                                "dtype": "float32",
+                                "encoding": "none",
+                                "shape": {}
+                            }
+                        },
+                        "humidity": {
+                            "pythonClassName": "tensorflow_datasets.core.features.tensor_feature.Tensor",
+                            "tensor": {
+                                "dtype": "float32",
+                                "encoding": "none",
+                                "shape": {}
+                            }
+                        },
+                        "temperature": {
+                            "pythonClassName": "tensorflow_datasets.core.features.tensor_feature.Tensor",
+                            "tensor": {
+                                "dtype": "float32",
+                                "encoding": "none",
+                                "shape": {}
+                            }
+                        },
+                        "time": {
+                            "pythonClassName": "tensorflow_datasets.core.features.tensor_feature.Tensor",
+                            "tensor": {
+                                "dtype": "int64",
+                                "encoding": "none",
+                                "shape": {}
+                            }
+                        }
+                    }
+                },
+                "pythonClassName": "tensorflow_datasets.core.features.features_dict.FeaturesDict"
+            },
+            "M2": {
+                "featuresDict": {
+                    "features": {
+                        "heat_index": {
+                            "pythonClassName": "tensorflow_datasets.core.features.tensor_feature.Tensor",
+                            "tensor": {
+                                "dtype": "float32",
+                                "encoding": "none",
+                                "shape": {}
+                            }
+                        },
+                        "humidity": {
+                            "pythonClassName": "tensorflow_datasets.core.features.tensor_feature.Tensor",
+                            "tensor": {
+                                "dtype": "float32",
+                                "encoding": "none",
+                                "shape": {}
+                            }
+                        },
+                        "temperature": {
+                            "pythonClassName": "tensorflow_datasets.core.features.tensor_feature.Tensor",
+                            "tensor": {
+                                "dtype": "float32",
+                                "encoding": "none",
+                                "shape": {}
+                            }
+                        },
+                        "time": {
+                            "pythonClassName": "tensorflow_datasets.core.features.tensor_feature.Tensor",
+                            "tensor": {
+                                "dtype": "int64",
+                                "encoding": "none",
+                                "shape": {}
+                            }
+                        }
+                    }
+                },
+                "pythonClassName": "tensorflow_datasets.core.features.features_dict.FeaturesDict"
+            },
+            "M3": {
+                "featuresDict": {
+                    "features": {
+                        "heat_index": {
+                            "pythonClassName": "tensorflow_datasets.core.features.tensor_feature.Tensor",
+                            "tensor": {
+                                "dtype": "float32",
+                                "encoding": "none",
+                                "shape": {}
+                            }
+                        },
+                        "humidity": {
+                            "pythonClassName": "tensorflow_datasets.core.features.tensor_feature.Tensor",
+                            "tensor": {
+                                "dtype": "float32",
+                                "encoding": "none",
+                                "shape": {}
+                            }
+                        },
+                        "temperature": {
+                            "pythonClassName": "tensorflow_datasets.core.features.tensor_feature.Tensor",
+                            "tensor": {
+                                "dtype": "float32",
+                                "encoding": "none",
+                                "shape": {}
+                            }
+                        },
+                        "time": {
+                            "pythonClassName": "tensorflow_datasets.core.features.tensor_feature.Tensor",
+                            "tensor": {
+                                "dtype": "int64",
+                                "encoding": "none",
+                                "shape": {}
+                            }
+                        }
+                    }
+                },
+                "pythonClassName": "tensorflow_datasets.core.features.features_dict.FeaturesDict"
+            }
+        }
+    },
+    "pythonClassName": "tensorflow_datasets.core.features.features_dict.FeaturesDict"
+}

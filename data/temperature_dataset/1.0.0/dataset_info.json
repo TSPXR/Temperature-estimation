@@ -1,0 +1,35 @@
+{
+  "citation": "// TODO(temperature_dataset): BibTeX citation",
+  "description": "TODO(temperature_dataset): Markdown description of that will appear on the catalog page.\nDescription is **formatted** as markdown.\n\nIt should also contain any processing which has been applied (if any),\n(e.g. corrupted example skipped, images cropped,...):",
+  "disableShuffling": true,
+  "fileFormat": "tfrecord",
+  "location": {
+    "urls": [
+      "https://dataset-homepage/"
+    ]
+  },
+  "moduleName": "temperature_dataset.temperature_dataset_dataset_builder",
+  "name": "temperature_dataset",
+  "releaseNotes": {
+    "1.0.0": "Initial release."
+  },
+  "splits": [
+    {
+      "filepathTemplate": "{DATASET}-{SPLIT}.{FILEFORMAT}-{SHARD_X_OF_Y}",
+      "name": "train",
+      "numBytes": "514794",
+      "shardLengths": [
+        "1666"
+      ]
+    },
+    {
+      "filepathTemplate": "{DATASET}-{SPLIT}.{FILEFORMAT}-{SHARD_X_OF_Y}",
+      "name": "validation",
+      "numBytes": "514794",
+      "shardLengths": [
+        "1666"
+      ]
+    }
+  ],
+  "version": "1.0.0"
+}

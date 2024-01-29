@@ -1,0 +1,16 @@
+Directory:
+  exp_name: 'Test'
+  data_dir: ./data
+  log_dir: ./tensorboard
+  weights: ./weights
+
+Train:
+  # Model
+  rnn_hidden_size: 1024 #1024
+  rnn_dropout: 0.2 #0.2
+
+  # Train
+  weight_decay: 0.000001
+  batch_size: 8 # 1
+  epoch: 101
+  init_lr: 0.0001
