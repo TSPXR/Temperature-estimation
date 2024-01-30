@@ -115,7 +115,7 @@ class Trainer(object):
             print(' LR : {0}'.format(self.optimizer.learning_rate))
             train_tqdm.set_description('Training   || Epoch : {0} || LR : {1} ||'.format(epoch, 
                                                                                          round(float(self.optimizer.learning_rate.numpy()), 8)))
-            for _, (input_humidity, input_temp, gt_humidity, gt_temp) in enumerate(train_tqdm):
+            for _, (input_humidity, input_temp, gt_humidity, gt_temp, gt_time) in enumerate(train_tqdm):
                 epoch_loss = self.train_step(input_temp, gt_temp)
 
             with self.train_summary_writer.as_default():
@@ -125,7 +125,7 @@ class Trainer(object):
             # Validation
             valid_tqdm = tqdm(self.test_dataset, total=self.dataset.number_test)
             valid_tqdm.set_description('Validation || ')
-            for _, (input_humidity, input_temp, gt_humidity, gt_temp) in enumerate(valid_tqdm):
+            for _, (input_humidity, input_temp, gt_humidity, gt_temp, gt_time) in enumerate(valid_tqdm):
                 self.validation_step(input_temp, gt_temp)
 
             with self.valid_summary_writer.as_default():

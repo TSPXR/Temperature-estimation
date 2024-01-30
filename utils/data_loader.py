@@ -2,11 +2,12 @@ import tensorflow_datasets as tfds
 import tensorflow as tf
 import math
 from typing import Union
+from datetime import datetime, timedelta
 
 AUTO = tf.data.experimental.AUTOTUNE
 # AUTO = 24
 
-class DataLoadHandler(object):
+class TFDataLoadHandler(object):
     def __init__(self):
         """
         This class performs pre-process work for each dataset and load tfds.
@@ -25,7 +26,65 @@ class DataLoadHandler(object):
         valid_data = tfds.load(self.dataset_name,
                                data_dir=self.data_dir, split='validation')
         return train_data, valid_data
+    
+class DataLoadHandler(object):
+    def __init__(self) -> None:
+        self.file_names = ['./samples/m1.txt', './samples/m2.txt', './samples/m3.txt']
+        self.create_dataset(self.file_names)
 
+    def create_dataset(self, file_names):
+        # 각 파일의 데이터를 딕셔너리로 로드
+        train_dataset = {}
+        valid_dataset = {}
+
+        for idx, file_name in enumerate(file_names):
+            train_data, valid_data = self.parse_sensor_data(file_name, 0.2)
+            train_dataset[f'M{idx+1}'] = tf.data.Dataset.from_generator(
+                lambda data=train_data: (d for d in data),
+                output_types={'time': tf.float64,
+                              'humidity': tf.float32,
+                              'temperature': tf.float32,
+                              'heat_index': tf.float32}
+            )
+
+            valid_dataset[f'M{idx+1}'] = tf.data.Dataset.from_generator(
+                lambda data=valid_data: (d for d in data),
+                output_types={'time': tf.float64,
+                              'humidity': tf.float32,
+                              'temperature': tf.float32,
+                              'heat_index': tf.float32}
+            )
+
+        # 모든 데이터셋을 하나로 병합
+        self.train_data = tf.data.Dataset.zip(train_dataset)
+        self.valid_data = tf.data.Dataset.zip(valid_dataset)
+
+    def parse_sensor_data(self, file_name, split_ratio):
+        data = []
+        with open(file_name, 'r') as file:
+            for line in file:
+                parts = line.strip().split(', ')
+                timestamp = parts[0]
+                sensor_data = parts[1].split('::: ')[1]
+
+                # 습도, 온도, 체감온도
+                humidity = sensor_data.split('Humidity: ')[1].split('%')[0]
+                temperature = sensor_data.split('Temperature: ')[1].split('°C')[0]
+                heat_index = sensor_data.split('Heat index: ')[1].split('°C')[0]
+
+                time_delta = datetime.fromisoformat(timestamp.replace('Z', '+00:00')) + timedelta(hours=9)
+                time_delta = time_delta.timestamp()
+            
+                data.append({
+                    'time': time_delta,
+                    'humidity': float(humidity),
+                    'temperature': float(temperature),
+                    'heat_index': float(heat_index)
+                })
+        data_size = int(len(data) * split_ratio)
+        train_data = data[data_size:]
+        valid_data = data[:data_size]
+        return train_data, valid_data
 
 class DataGenerator(DataLoadHandler):
     def __init__(self, data_dir: str, batch_size: int):
@@ -38,8 +97,8 @@ class DataGenerator(DataLoadHandler):
         super().__init__()
         self.data_dir = data_dir
         self.batch_size = batch_size
-        self.number_train = self.train_data.reduce(0, lambda x, _: x + 1).numpy()
-        self.number_test = self.valid_data.reduce(0, lambda x, _: x + 1).numpy()
+        self.number_train = self.train_data.reduce(0, lambda x, _: x + 1).numpy() // self.batch_size
+        self.number_test = self.valid_data.reduce(0, lambda x, _: x + 1).numpy() // self.batch_size
 
     # @tf.function(jit_compile=True)
     def parsing_sensor_data(self, sensor_data: dict):
