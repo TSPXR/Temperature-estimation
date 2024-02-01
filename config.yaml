@@ -11,6 +11,6 @@ Train:
 
   # Train
   weight_decay: 0.000001
-  batch_size: 8 # 1
-  epoch: 101
+  batch_size: 128 # 1
+  epoch: 51
   init_lr: 0.0001

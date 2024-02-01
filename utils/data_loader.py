@@ -3,6 +3,7 @@ import tensorflow as tf
 import math
 from typing import Union
 from datetime import datetime, timedelta
+import random
 
 AUTO = tf.data.experimental.AUTOTUNE
 # AUTO = 24
@@ -41,7 +42,11 @@ class DataLoadHandler(object):
             train_data, valid_data = self.parse_sensor_data(file_name, 0.2)
             train_dataset[f'M{idx+1}'] = tf.data.Dataset.from_generator(
                 lambda data=train_data: (d for d in data),
-                output_types={'time': tf.float64,
+                output_types={'month': tf.float32,
+                              'day': tf.float32,
+                              'hour': tf.float32,
+                              'minute': tf.float32,
+                              'second': tf.float32,
                               'humidity': tf.float32,
                               'temperature': tf.float32,
                               'heat_index': tf.float32}
@@ -49,7 +54,11 @@ class DataLoadHandler(object):
 
             valid_dataset[f'M{idx+1}'] = tf.data.Dataset.from_generator(
                 lambda data=valid_data: (d for d in data),
-                output_types={'time': tf.float64,
+             output_types={'month': tf.float32,
+                              'day': tf.float32,
+                              'hour': tf.float32,
+                              'minute': tf.float32,
+                              'second': tf.float32,
                               'humidity': tf.float32,
                               'temperature': tf.float32,
                               'heat_index': tf.float32}
@@ -74,9 +83,14 @@ class DataLoadHandler(object):
 
                 time_delta = datetime.fromisoformat(timestamp.replace('Z', '+00:00')) + timedelta(hours=9)
                 time_delta = time_delta.timestamp()
-            
+                time_delta_datetime = datetime.fromtimestamp(time_delta)
+
                 data.append({
-                    'time': time_delta,
+                    'month': float(time_delta_datetime.month),
+                    'day': float(time_delta_datetime.day),
+                    'hour': float(time_delta_datetime.hour),
+                    'minute': float(time_delta_datetime.minute),
+                    'second': float(time_delta_datetime.second),
                     'humidity': float(humidity),
                     'temperature': float(temperature),
                     'heat_index': float(heat_index)
@@ -100,13 +114,44 @@ class DataGenerator(DataLoadHandler):
         self.number_train = self.train_data.reduce(0, lambda x, _: x + 1).numpy() // self.batch_size
         self.number_test = self.valid_data.reduce(0, lambda x, _: x + 1).numpy() // self.batch_size
 
-    # @tf.function(jit_compile=True)
-    def parsing_sensor_data(self, sensor_data: dict):
-        time = sensor_data['time']
+    @tf.function(jit_compile=True)
+    def cyclic_encoding(self, value, max_value):
+        sin = tf.sin(2 * tf.experimental.numpy.pi * value / max_value)
+        cos = tf.cos(2 * tf.experimental.numpy.pi * value / max_value)
+        return [sin, cos]
+
+    @tf.function(jit_compile=True)
+    def normalize_data(self, sensor_data):
+        month = sensor_data['month']
+        day = sensor_data['day']
+        hour = sensor_data['hour']
+        minute = sensor_data['minute']
+        second = sensor_data['second']
         humidity = sensor_data['humidity']
         temperature = sensor_data['temperature']
         heat_index = sensor_data['heat_index']
-        return time, humidity, temperature, heat_index
+
+        month_cycle = self.cyclic_encoding(month, 12)
+        day_cycle = self.cyclic_encoding(day, 31)
+        hour_cycle = self.cyclic_encoding(hour, 24)
+        minute_cycle = self.cyclic_encoding(minute, 60)
+        second_cycle = self.cyclic_encoding(second, 60)
+        time = tf.concat([month_cycle, day_cycle, hour_cycle, minute_cycle, second_cycle], axis=-1)
+        humidity /= 100.
+        humidity = tf.expand_dims(humidity, axis=-1)
+        
+        temperature /= 100.
+        temperature = tf.expand_dims(temperature, axis=-1)
+
+        heat_index /= 100.
+        heat_index = tf.expand_dims(heat_index, axis=-1)
+        return (time, humidity, temperature, heat_index)
+
+    @tf.function(jit_compile=True)
+    def parsing_sensor_data(self, sensor_data: dict):
+
+        normalized_data = self.normalize_data(sensor_data)
+        return normalized_data
 
     @tf.function(jit_compile=True)
     def prepare_data(self, sample: dict) -> Union[tf.Tensor, tf.Tensor]:
@@ -137,24 +182,15 @@ class DataGenerator(DataLoadHandler):
             Returns:
                 (img, labels) (dict) : Returns the image and label extracted from sample as a key value.
         """
-        sensor_input = sample['M1']
-        sensor_gt = sample['M2']
-        # _ = sample['M3']
+        M1 = sample['M1']
+        M2 = sample['M2']
+        M3 = sample['M3']
 
-        # input_time, input_humidity, input_temp, _ = self.parsing_sensor_data(sensor_data=sensor_input)
-        # gt_time, gt_humidity, gt_temp, _ = self.parsing_sensor_data(sensor_data=sensor_gt)
+        input_m1 = self.parsing_sensor_data(sensor_data=M1)
+        gt_m1 = self.parsing_sensor_data(sensor_data=M2)
+        gt_m3 = self.parsing_sensor_data(sensor_data=M3)
 
-        # input_time = sensor_input['time']
-        input_humidity = sensor_input['humidity']
-        input_temp = sensor_input['temperature']
-
-        gt_time = sensor_gt['time']
-        gt_humidity = sensor_gt['humidity']
-        gt_temp = sensor_gt['temperature']
-        
-
-        
-        return (input_humidity, input_temp, gt_humidity, gt_temp, gt_time)
+        return (input_m1, gt_m1, gt_m3)
 
     @tf.function(jit_compile=True)
     def preprocess(self, sample: dict) -> Union[tf.Tensor, tf.Tensor]:
@@ -167,9 +203,9 @@ class DataGenerator(DataLoadHandler):
             Returns:
                 (img, labels) (dict) : tf.Tensor
         """
-        input_humidity, input_temp, gt_humidity, gt_temp, gt_time = self.prepare_data(sample)
+        m1, m2, m3 = self.prepare_data(sample)
         
-        return (input_humidity, input_temp, gt_humidity, gt_temp, gt_time)
+        return (m1, m2, m3)
     
     def get_trainData(self, train_data: tf.data.Dataset) -> tf.data.Dataset:
         """
@@ -180,7 +216,7 @@ class DataGenerator(DataLoadHandler):
             Returns:
                 train_data    (tf.data.Dataset)  : Apply data augmentation, batch, and shuffling
         """    
-        # train_data = train_data.shuffle(256, reshuffle_each_iteration=True)
+        train_data = train_data.shuffle(1024, reshuffle_each_iteration=True)
         train_data = train_data.map(self.preprocess, num_parallel_calls=AUTO)
         train_data = train_data.batch(self.batch_size, drop_remainder=True)
         train_data = train_data.prefetch(AUTO)

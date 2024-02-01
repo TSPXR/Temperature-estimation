@@ -57,7 +57,8 @@ class Trainer(object):
                                                                          power=0.9)
         
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=self.config['Train']['init_lr'],
-                                                  )# weight_decay=self.config['Train']['weight_decay']
+                                                  weight_decay=self.config['Train']['weight_decay']
+                                                  )# 
 
         # 4. Loss
         self.mse_loss = tf.keras.losses.MeanSquaredError(reduction=tf.keras.losses.Reduction.AUTO)
@@ -78,14 +79,22 @@ class Trainer(object):
                                 exist_ok=True)
     
     @tf.function(jit_compile=True)
-    def train_step(self, x, y) -> tf.Tensor:
+    def train_step(self, m1, m2, m3) -> tf.Tensor:
         with tf.GradientTape() as tape:
             # Forward pass
-            pred = self.model(x, training=True)
+            m1_time, m1_humidity, m1_temp, m1_hit = m1
+            _, m2_humidity, m2_temp, m2_hit = m2
+            _, m3_humidity, m3_temp, m3_hit = m3
 
-            angle_loss = self.mse_loss(y, pred)
+            # m1_humidity = tf.expand_dims(m1_humidity, axis=-1)
+            # m1_temp = tf.expand_dims(m1_temp, axis=-1)
+            x = tf.concat([m1_humidity, m1_temp], axis=-1)
+            y = tf.concat([m2_temp, m3_temp], axis=-1)
+            pred = self.model(m1_time, x, training=True)
+
+            total_loss = self.mse_loss(y, pred)
             
-            total_loss = tf.reduce_mean(angle_loss)
+            total_loss = tf.reduce_mean(total_loss)
         
         # loss update
         gradients = tape.gradient(total_loss, self.model.trainable_variables)
@@ -97,8 +106,14 @@ class Trainer(object):
         return total_loss
 
     @tf.function(jit_compile=True)
-    def validation_step(self, x, y) -> tf.Tensor:
-        pred = self.model(x, training=False)
+    def validation_step(self, m1, m2, m3) -> tf.Tensor:
+        m1_time, m1_humidity, m1_temp, m1_hit = m1
+        _, m2_humidity, m2_temp, m2_hit = m2
+        _, m3_humidity, m3_temp, m3_hit = m3
+
+        x = tf.concat([m1_humidity, m1_temp], axis=-1)
+        y = tf.concat([m2_temp, m3_temp], axis=-1)
+        pred = self.model(m1_time, x, training=False)
 
         self.valid_rmse_metric.update_state(y, pred)
     
@@ -115,8 +130,8 @@ class Trainer(object):
             print(' LR : {0}'.format(self.optimizer.learning_rate))
             train_tqdm.set_description('Training   || Epoch : {0} || LR : {1} ||'.format(epoch, 
                                                                                          round(float(self.optimizer.learning_rate.numpy()), 8)))
-            for _, (input_humidity, input_temp, gt_humidity, gt_temp, gt_time) in enumerate(train_tqdm):
-                epoch_loss = self.train_step(input_temp, gt_temp)
+            for _, (m1, m2, m3) in enumerate(train_tqdm):
+                epoch_loss = self.train_step(m1, m2, m3)
 
             with self.train_summary_writer.as_default():
                 tf.summary.scalar(self.train_rmse_metric.name, self.train_rmse_metric.result(), step=epoch)
@@ -125,8 +140,8 @@ class Trainer(object):
             # Validation
             valid_tqdm = tqdm(self.test_dataset, total=self.dataset.number_test)
             valid_tqdm.set_description('Validation || ')
-            for _, (input_humidity, input_temp, gt_humidity, gt_temp, gt_time) in enumerate(valid_tqdm):
-                self.validation_step(input_temp, gt_temp)
+            for _, (m1, m2, m3) in enumerate(valid_tqdm):
+                self.validation_step(m1, m2, m3)
 
             with self.valid_summary_writer.as_default():
                 tf.summary.scalar(self.valid_rmse_metric.name, self.valid_rmse_metric.result(), step=epoch)
