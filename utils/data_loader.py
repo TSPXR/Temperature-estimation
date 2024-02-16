@@ -4,6 +4,7 @@ import math
 from typing import Union
 from datetime import datetime, timedelta
 import random
+import numpy as np
 
 AUTO = tf.data.experimental.AUTOTUNE
 # AUTO = 24
@@ -30,9 +31,10 @@ class TFDataLoadHandler(object):
     
 class DataLoadHandler(object):
     def __init__(self) -> None:
-        self.file_names = ['./samples/m1.txt', './samples/m2.txt', './samples/m3.txt']
+        self.file_names = ['./samples/20240215/sync_m1.txt', './samples/20240215/sync_m2.txt', './samples/20240215/sync_m3.txt']
+        self.seq_len = 10
         self.create_dataset(self.file_names)
-
+        
     def create_dataset(self, file_names):
         # 각 파일의 데이터를 딕셔너리로 로드
         train_dataset = {}
@@ -54,22 +56,25 @@ class DataLoadHandler(object):
 
             valid_dataset[f'M{idx+1}'] = tf.data.Dataset.from_generator(
                 lambda data=valid_data: (d for d in data),
-             output_types={'month': tf.float32,
+                output_types={'month': tf.float32,
                               'day': tf.float32,
                               'hour': tf.float32,
                               'minute': tf.float32,
                               'second': tf.float32,
                               'humidity': tf.float32,
                               'temperature': tf.float32,
-                              'heat_index': tf.float32}
-            )
-
+                              'heat_index': tf.float32
+                              }
+                              )
+            
         # 모든 데이터셋을 하나로 병합
         self.train_data = tf.data.Dataset.zip(train_dataset)
         self.valid_data = tf.data.Dataset.zip(valid_dataset)
 
     def parse_sensor_data(self, file_name, split_ratio):
         data = []
+        sequences = []
+
         with open(file_name, 'r') as file:
             for line in file:
                 parts = line.strip().split(', ')
@@ -95,9 +100,26 @@ class DataLoadHandler(object):
                     'temperature': float(temperature),
                     'heat_index': float(heat_index)
                 })
-        data_size = int(len(data) * split_ratio)
-        train_data = data[data_size:]
-        valid_data = data[:data_size]
+
+        for i in range(0, len(data), self.seq_len):
+            sequence = data[i:i+self.seq_len]
+            if len(sequence) == self.seq_len:
+                # 각 키별로 데이터를 스택합니다
+                stacked_sequence = {
+                    'month': np.array([item['month'] for item in sequence]),
+                    'day': np.array([item['day'] for item in sequence]),
+                    'hour': np.array([item['hour'] for item in sequence]),
+                    'minute': np.array([item['minute'] for item in sequence]),
+                    'second': np.array([item['second'] for item in sequence]),
+                    'humidity': np.array([item['humidity'] for item in sequence]),
+                    'temperature': np.array([item['temperature'] for item in sequence]),
+                    'heat_index': np.array([item['heat_index'] for item in sequence]),
+                }
+                sequences.append(stacked_sequence)
+
+        data_size = int(len(sequences) * split_ratio)
+        train_data = sequences[data_size:]
+        valid_data = sequences[:data_size]
         return train_data, valid_data
 
 class DataGenerator(DataLoadHandler):
@@ -116,13 +138,17 @@ class DataGenerator(DataLoadHandler):
 
     @tf.function(jit_compile=True)
     def cyclic_encoding(self, value, max_value):
+        print(value)
         sin = tf.sin(2 * tf.experimental.numpy.pi * value / max_value)
         cos = tf.cos(2 * tf.experimental.numpy.pi * value / max_value)
-        return [sin, cos]
+        print(sin)
+        print(cos)
+        return tf.stack([sin, cos], axis=-1)
 
     @tf.function(jit_compile=True)
     def normalize_data(self, sensor_data):
         month = sensor_data['month']
+        print(month)
         day = sensor_data['day']
         hour = sensor_data['hour']
         minute = sensor_data['minute']
@@ -137,6 +163,7 @@ class DataGenerator(DataLoadHandler):
         minute_cycle = self.cyclic_encoding(minute, 60)
         second_cycle = self.cyclic_encoding(second, 60)
         time = tf.concat([month_cycle, day_cycle, hour_cycle, minute_cycle, second_cycle], axis=-1)
+        print(time.shape)
         humidity /= 100.
         humidity = tf.expand_dims(humidity, axis=-1)
         
@@ -155,42 +182,15 @@ class DataGenerator(DataLoadHandler):
 
     @tf.function(jit_compile=True)
     def prepare_data(self, sample: dict) -> Union[tf.Tensor, tf.Tensor]:
-        """
-         'M1': tfds.features.FeaturesDict({
-              'time': tfds.features.Text(),
-              'humidity': tfds.features.Tensor(shape=(), dtype=tf.float32),
-              'temperature': tfds.features.Tensor(shape=(), dtype=tf.float32),
-              'heat_index': tfds.features.Tensor(shape=(), dtype=tf.float32)
-            }),
-            'M2': tfds.features.FeaturesDict({
-              'time': tfds.features.Text(),
-              'humidity': tfds.features.Tensor(shape=(), dtype=tf.float32),
-              'temperature': tfds.features.Tensor(shape=(), dtype=tf.float32),
-              'heat_index': tfds.features.Tensor(shape=(), dtype=tf.float32)
-            }),
-            'M3': tfds.features.FeaturesDict({
-              'time': tfds.features.Text(),
-              'humidity': tfds.features.Tensor(shape=(), dtype=tf.float32),
-              'temperature': tfds.features.Tensor(shape=(), dtype=tf.float32),
-              'heat_index': tfds.features.Tensor(shape=(), dtype=tf.float32)
-            }),
-
-            Load RGB images and segmentation labels from the dataset.
-            Args:
-                sample    (dict)  : Dataset loaded through tfds.load().
-
-            Returns:
-                (img, labels) (dict) : Returns the image and label extracted from sample as a key value.
-        """
         M1 = sample['M1']
         M2 = sample['M2']
         M3 = sample['M3']
 
         input_m1 = self.parsing_sensor_data(sensor_data=M1)
-        gt_m1 = self.parsing_sensor_data(sensor_data=M2)
+        gt_m2 = self.parsing_sensor_data(sensor_data=M2)
         gt_m3 = self.parsing_sensor_data(sensor_data=M3)
 
-        return (input_m1, gt_m1, gt_m3)
+        return (input_m1, gt_m2, gt_m3)
 
     @tf.function(jit_compile=True)
     def preprocess(self, sample: dict) -> Union[tf.Tensor, tf.Tensor]:
@@ -239,4 +239,4 @@ class DataGenerator(DataLoadHandler):
         return valid_data
     
 if __name__ == '__main__':
-    print(AUTO)
+    DataLoadHandler()

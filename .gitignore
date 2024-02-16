@@ -6,6 +6,7 @@ __pycache__/
 # Ignore directory
 weights/
 tensorboard/
+samples/
 
 # C extensions
 *.so

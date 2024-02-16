@@ -1,5 +1,5 @@
 Directory:
-  exp_name: 'Test'
+  exp_name: 'Test_2_WOBN_NEW'
   data_dir: ./data
   log_dir: ./tensorboard
   weights: ./weights

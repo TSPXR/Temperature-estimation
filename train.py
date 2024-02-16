@@ -78,7 +78,7 @@ class Trainer(object):
                                 self.config['Directory']['exp_name']),
                                 exist_ok=True)
     
-    @tf.function(jit_compile=True)
+    # @tf.function(jit_compile=True)
     def train_step(self, m1, m2, m3) -> tf.Tensor:
         with tf.GradientTape() as tape:
             # Forward pass
