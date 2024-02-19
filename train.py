@@ -93,7 +93,10 @@ class Trainer(object):
             # m1_temp = tf.expand_dims(m1_temp, axis=-1)
             m2_gt = tf.concat([m2_temp, m2_humidity], axis=-1)
             m3_gt = tf.concat([m3_temp, m3_humidity], axis=-1)
-            m2_pred, m3_pred = self.model([m1_time, m1_temp, m1_humidity], training=True)
+            output = self.model([m1_time, m1_temp, m1_humidity], training=True)
+
+            m2_pred = output[:, :, :2]
+            m3_pred = output[:, :, 2:]
 
             m2_loss = tf.keras.losses.mean_squared_error(m2_gt, m2_pred)
             m3_loss = tf.keras.losses.mean_squared_error(m3_gt, m3_pred)
@@ -119,7 +122,10 @@ class Trainer(object):
 
         m2_gt = tf.concat([m2_temp, m2_humidity], axis=-1)
         m3_gt = tf.concat([m3_temp, m3_humidity], axis=-1)
-        m2_pred, m3_pred = self.model([m1_time, m1_temp, m1_humidity], training=False)
+        output = self.model([m1_time, m1_temp, m1_humidity], training=False)
+
+        m2_pred = output[:, :, :2]
+        m3_pred = output[:, :, 2:]
 
         # Update metric
         self.valid_m2_rmse_metric.update_state(m2_gt, m2_pred)

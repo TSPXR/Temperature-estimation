@@ -76,8 +76,9 @@ class DenseModule(tf.keras.Model):
         super(DenseModule, self).__init__()
         self.dense = tf.keras.Sequential([
             tf.keras.layers.Dense(256, use_bias=False),
+            tf.keras.layers.BatchNormalization(),
             tf.keras.layers.Activation(activation),
-            tf.keras.layers.Dense(2, use_bias=True),
+            tf.keras.layers.Dense(4, use_bias=True),
         ])
 
     def call(self, x, training=True):
@@ -94,8 +95,7 @@ class TSPSimulator():
         self.temp_encoder = TempEncoder()
         self.humd_encoder = HumidityEncoder()
         self.lstm = LstmModule()
-        self.m2_reg = DenseModule()
-        self.m3_reg = DenseModule()
+        self.regressor = DenseModule()
 
     def call(self, inputs, training=True):
         """
@@ -111,9 +111,8 @@ class TSPSimulator():
         concat_feature = tf.concat([time_encode, temp_encode, hud_encode], axis=-1)
 
         out = self.lstm(concat_feature, training)
-        m2 = self.m2_reg(out, training)
-        m3 = self.m2_reg(out, training)
-        return m2, m3
+        output = self.regressor(out, training)
+        return output
 
     def build_model(self, batch_size):
         temp = tf.keras.layers.Input((10, 1), batch_size=batch_size)
