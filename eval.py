@@ -90,8 +90,8 @@ class Evaluator(object):
         self.m3_abs_error.update_state(m3_temp_list, pred_m3_list)
 
         print(len(pred_m2_list))
-        print('M2 Sensor ABS ERROR :  ', float(self.m2_abs_error.result().numpy()) * 100, '°C')
-        print('M3 Sensor ABS ERROR :  ', float(self.m3_abs_error.result().numpy()) * 100, '°C')
+        print('M2 Sensor ABS ERROR :  ', float(self.m2_abs_error.result().numpy()), '°C')
+        print('M3 Sensor ABS ERROR :  ', float(self.m3_abs_error.result().numpy()), '°C')
         # 그래프 생성
         plt.figure(figsize=(10, 6))
 

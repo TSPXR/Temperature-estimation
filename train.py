@@ -37,9 +37,9 @@ class Trainer(object):
             6. Logger
         """
         # 1. Model
-        self.model = TSPSimulator(config=self.config)
-        self.model.built = True
-        self.model.build_model(self.config['Train']['batch_size'])
+        model_builder = TSPSimulator(config=self.config)
+        
+        self.model = model_builder.build_model(self.config['Train']['batch_size'])
         self.model.summary()
         # self.model.load_weights('./weights/epoch_100_model.h5')
 
@@ -64,8 +64,11 @@ class Trainer(object):
         self.mse_loss = tf.keras.losses.MeanSquaredError(reduction=tf.keras.losses.Reduction.AUTO)
         
         # 5. Metric
-        self.train_rmse_metric = tf.keras.metrics.RootMeanSquaredError(name='train_rmse')
-        self.valid_rmse_metric = tf.keras.metrics.RootMeanSquaredError(name='valid_rmse')
+        self.train_m2_rmse_metric = tf.keras.metrics.RootMeanSquaredError(name='train_m2_rmse')
+        self.train_m3_rmse_metric = tf.keras.metrics.RootMeanSquaredError(name='train_m3_rmse')
+
+        self.valid_m2_rmse_metric = tf.keras.metrics.RootMeanSquaredError(name='valid_m2_rmse')
+        self.valid_m3_rmse_metric = tf.keras.metrics.RootMeanSquaredError(name='valid_m3_rmse')
 
         # 6. Logger
         current_time = datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -82,40 +85,50 @@ class Trainer(object):
     def train_step(self, m1, m2, m3) -> tf.Tensor:
         with tf.GradientTape() as tape:
             # Forward pass
-            m1_time, m1_humidity, m1_temp, m1_hit = m1
-            _, m2_humidity, m2_temp, m2_hit = m2
-            _, m3_humidity, m3_temp, m3_hit = m3
+            m1_time, m1_humidity, m1_temp, _ = m1
+            _, m2_humidity, m2_temp, _ = m2
+            _, m3_humidity, m3_temp, _ = m3
 
             # m1_humidity = tf.expand_dims(m1_humidity, axis=-1)
             # m1_temp = tf.expand_dims(m1_temp, axis=-1)
-            x = tf.concat([m1_humidity, m1_temp], axis=-1)
-            y = tf.concat([m2_temp, m3_temp], axis=-1)
-            pred = self.model(m1_time, x, training=True)
+            m2_gt = tf.concat([m2_temp, m2_humidity], axis=-1)
+            m3_gt = tf.concat([m3_temp, m3_humidity], axis=-1)
+            m2_pred, m3_pred = self.model([m1_time, m1_temp, m1_humidity], training=True)
 
-            total_loss = self.mse_loss(y, pred)
+            m2_loss = tf.keras.losses.mean_squared_error(m2_gt, m2_pred)
+            m3_loss = tf.keras.losses.mean_squared_error(m3_gt, m3_pred)
             
+            total_loss = m2_loss + m3_loss
             total_loss = tf.reduce_mean(total_loss)
+
+            l2_losses = [0.000001 * tf.nn.l2_loss(v) for v in self.model.trainable_variables]
+            l2_losses = tf.reduce_sum(l2_losses)
+
+            total_loss += l2_losses
         
         # loss update
         gradients = tape.gradient(total_loss, self.model.trainable_variables)
         self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
 
         # Update metric
-        self.train_rmse_metric.update_state(y, pred)
+        self.train_m2_rmse_metric.update_state(m2_gt, m2_pred)
+        self.train_m3_rmse_metric.update_state(m3_gt, m3_pred)
 
         return total_loss
 
     @tf.function(jit_compile=True)
     def validation_step(self, m1, m2, m3) -> tf.Tensor:
-        m1_time, m1_humidity, m1_temp, m1_hit = m1
-        _, m2_humidity, m2_temp, m2_hit = m2
-        _, m3_humidity, m3_temp, m3_hit = m3
+        m1_time, m1_humidity, m1_temp, _ = m1
+        _, m2_humidity, m2_temp, _ = m2
+        _, m3_humidity, m3_temp, _ = m3
 
-        x = tf.concat([m1_humidity, m1_temp], axis=-1)
-        y = tf.concat([m2_temp, m3_temp], axis=-1)
-        pred = self.model(m1_time, x, training=False)
+        m2_gt = tf.concat([m2_temp, m2_humidity], axis=-1)
+        m3_gt = tf.concat([m3_temp, m3_humidity], axis=-1)
+        m2_pred, m3_pred = self.model([m1_time, m1_temp, m1_humidity], training=False)
 
-        self.valid_rmse_metric.update_state(y, pred)
+        # Update metric
+        self.valid_m2_rmse_metric.update_state(m2_gt, m2_pred)
+        self.valid_m3_rmse_metric.update_state(m3_gt, m3_pred)
     
     def train(self) -> None:        
         for epoch in range(self.config['Train']['epoch']):
@@ -134,7 +147,8 @@ class Trainer(object):
                 epoch_loss = self.train_step(m1, m2, m3)
 
             with self.train_summary_writer.as_default():
-                tf.summary.scalar(self.train_rmse_metric.name, self.train_rmse_metric.result(), step=epoch)
+                tf.summary.scalar(self.train_m2_rmse_metric.name, self.train_m2_rmse_metric.result(), step=epoch)
+                tf.summary.scalar(self.train_m3_rmse_metric.name, self.train_m3_rmse_metric.result(), step=epoch)
                 tf.summary.scalar('epoch_loss', tf.reduce_mean(epoch_loss).numpy(), step=epoch)
             
             # Validation
@@ -144,7 +158,8 @@ class Trainer(object):
                 self.validation_step(m1, m2, m3)
 
             with self.valid_summary_writer.as_default():
-                tf.summary.scalar(self.valid_rmse_metric.name, self.valid_rmse_metric.result(), step=epoch)
+                tf.summary.scalar(self.valid_m2_rmse_metric.name, self.valid_m2_rmse_metric.result(), step=epoch)
+                tf.summary.scalar(self.valid_m3_rmse_metric.name, self.valid_m3_rmse_metric.result(), step=epoch)
 
             if epoch % 5 == 0:
                 # self.model.save_weights('./{0}/epoch_{1}_model.h5'.format(self.config['Directory']['weights'], epoch))
@@ -153,13 +168,17 @@ class Trainer(object):
                                                                             self.config['Directory']['exp_name'],
                                                                             epoch))
             # Log epoch loss
-            print(f'\n \
-                    train_RMSE : {self.train_rmse_metric.result()}, \n \
-                    valid_RMSE : {self.valid_rmse_metric.result()}')
 
+            print(f'\n \
+                    train_M2 : {self.train_m2_rmse_metric.result()}, train_M3 : {self.train_m3_rmse_metric.result()}, \n \
+                    valid_M2 : {self.valid_m2_rmse_metric.result()}, valid_M3 : {self.valid_m3_rmse_metric.result()} \n')
+            
             # clear_session()
-            self.train_rmse_metric.reset_states()
-            self.valid_rmse_metric.reset_states()
+            self.train_m2_rmse_metric.reset_states()
+            self.train_m3_rmse_metric.reset_states()
+            
+            self.valid_m2_rmse_metric.reset_states()
+            self.valid_m3_rmse_metric.reset_states()
 
             self._clear_session()
 

@@ -1,5 +1,5 @@
 Directory:
-  exp_name: 'Test_2_WOBN_NEW'
+  exp_name: 'TEST3'
   data_dir: ./data
   log_dir: ./tensorboard
   weights: ./weights
@@ -11,6 +11,6 @@ Train:
 
   # Train
   weight_decay: 0.000001
-  batch_size: 128 # 1
-  epoch: 51
+  batch_size: 8 # 1
+  epoch: 101
   init_lr: 0.0001
