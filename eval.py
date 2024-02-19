@@ -109,7 +109,8 @@ class Evaluator(object):
         plt.xlabel('Time')
         plt.ylabel('Temperature (°C)')
         plt.title('Temperature over Time')
-        plt.show()
+        # plt.show()
+        plt.savefig('./estimated.png')
 
 
 if __name__ == '__main__':
