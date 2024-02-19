@@ -100,11 +100,6 @@ class Trainer(object):
             
             total_loss = m2_loss + m3_loss
             total_loss = tf.reduce_mean(total_loss)
-
-            l2_losses = [0.000001 * tf.nn.l2_loss(v) for v in self.model.trainable_variables]
-            l2_losses = tf.reduce_sum(l2_losses)
-
-            total_loss += l2_losses
         
         # loss update
         gradients = tape.gradient(total_loss, self.model.trainable_variables)
